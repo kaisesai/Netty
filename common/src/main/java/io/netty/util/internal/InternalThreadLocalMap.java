@@ -87,6 +87,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     }
 
     public static InternalThreadLocalMap getIfSet() {
+        // FastThreadLocalThread 线程本地化数据
         Thread thread = Thread.currentThread();
         if (thread instanceof FastThreadLocalThread) {
             return ((FastThreadLocalThread) thread).threadLocalMap();

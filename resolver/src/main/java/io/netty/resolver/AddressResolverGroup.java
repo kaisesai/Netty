@@ -63,6 +63,7 @@ public abstract class AddressResolverGroup<T extends SocketAddress> implements C
 
         AddressResolver<T> r;
         synchronized (resolvers) {
+            // 获取事件循环器对应的服务地址解析器
             r = resolvers.get(executor);
             if (r == null) {
                 final AddressResolver<T> newResolver;

@@ -66,6 +66,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
              */
+            // 打开一个 socket
             return provider.openSocketChannel();
         } catch (IOException e) {
             throw new ChannelException("Failed to open a socket.", e);
@@ -298,6 +299,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     private void doBind0(SocketAddress localAddress) throws Exception {
         if (PlatformDependent.javaVersion() >= 7) {
+            // 绑定客户端 socketChannel
             SocketUtils.bind(javaChannel(), localAddress);
         } else {
             SocketUtils.bind(javaChannel().socket(), localAddress);

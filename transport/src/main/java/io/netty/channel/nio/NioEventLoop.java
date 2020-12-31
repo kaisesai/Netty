@@ -50,6 +50,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * 单线程的事件循环组
+ *
  * {@link SingleThreadEventLoop} implementation which register the {@link Channel}'s to a
  * {@link Selector} and so does the multi-plexing of these in the event loop.
  *
@@ -131,14 +133,18 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private volatile int ioRatio = 50;
     private int cancelledKeys;
     private boolean needsToSelectAgain;
-
+    
     NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,
                  SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler,
                  EventLoopTaskQueueFactory queueFactory) {
+        // 父类构造器
         super(parent, executor, false, newTaskQueue(queueFactory), newTaskQueue(queueFactory),
                 rejectedExecutionHandler);
+        // 选择器提供者
         this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider");
+        // 选择策略
         this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy");
+        // 打开一个选择器 selector
         final SelectorTuple selectorTuple = openSelector();
         this.selector = selectorTuple.selector;
         this.unwrappedSelector = selectorTuple.unwrappedSelector;
@@ -166,10 +172,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             this.selector = selector;
         }
     }
-
+    
+    /**
+     * 创建一个 selector
+     * @return
+     */
     private SelectorTuple openSelector() {
         final Selector unwrappedSelector;
         try {
+            // 打开过一个 selector
             unwrappedSelector = provider.openSelector();
         } catch (IOException e) {
             throw new ChannelException("failed to open a new selector", e);
@@ -430,14 +441,19 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             logger.info("Migrated " + nChannels + " channel(s) to the new Selector.");
         }
     }
-
+    
+    /**
+     * 事件循环处理器
+     */
     @Override
     protected void run() {
         int selectCnt = 0;
+        // 无限循环处理事件
         for (;;) {
             try {
                 int strategy;
                 try {
+                    // 计算策略
                     strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
                     switch (strategy) {
                     case SelectStrategy.CONTINUE:
@@ -447,13 +463,17 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         // fall-through to SELECT since the busy-wait is not supported with NIO
 
                     case SelectStrategy.SELECT:
+                        // select 事件
+                        // 获取下一个定时任务过期时间
                         long curDeadlineNanos = nextScheduledTaskDeadlineNanos();
                         if (curDeadlineNanos == -1L) {
                             curDeadlineNanos = NONE; // nothing on the calendar
                         }
                         nextWakeupNanos.set(curDeadlineNanos);
                         try {
+                            // 如果没有任务
                             if (!hasTasks()) {
+                                // 执行选择
                                 strategy = select(curDeadlineNanos);
                             }
                         } finally {
@@ -473,6 +493,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     continue;
                 }
 
+                // 表示有任务或者监听到事件
+                
                 selectCnt++;
                 cancelledKeys = 0;
                 needsToSelectAgain = false;
@@ -575,11 +597,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             // Ignore.
         }
     }
-
+    
+    /**
+     * 处理已选择的 key
+     */
     private void processSelectedKeys() {
         if (selectedKeys != null) {
             processSelectedKeysOptimized();
         } else {
+            // 处理选择的 key，获取所有的 key，遍历执行
             processSelectedKeysPlain(selector.selectedKeys());
         }
     }
@@ -610,13 +636,18 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             return;
         }
 
+        // 遍历选择的 key
         Iterator<SelectionKey> i = selectedKeys.iterator();
         for (;;) {
+            // 获取每个选择 key
             final SelectionKey k = i.next();
+            // 获取附件
             final Object a = k.attachment();
+            // 删除 key，防止重复执行
             i.remove();
 
             if (a instanceof AbstractNioChannel) {
+                // 处理 NioChannel，附件，服务端的 NioServerSocketChannel 会注册此附件
                 processSelectedKey(k, (AbstractNioChannel) a);
             } else {
                 @SuppressWarnings("unchecked")
@@ -675,6 +706,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         if (!k.isValid()) {
             final EventLoop eventLoop;
             try {
+                // 获取事件循环处理器
                 eventLoop = ch.eventLoop();
             } catch (Throwable ignored) {
                 // If the channel implementation throws an exception because there is no event loop, we ignore this
@@ -694,6 +726,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         try {
+            // 获取 key 读操作
             int readyOps = k.readyOps();
             // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise
             // the NIO JDK channel implementation may throw a NotYetConnectedException.
@@ -716,6 +749,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead
             // to a spin loop
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+                // 执行读取事件，服务端的 NioServerChannel 创建时，它的 readyOps = OP_ACCEPT
+                // 这里就是接受客户端 socketChannel 连接或者读取数据
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {
@@ -804,9 +839,17 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     int selectNow() throws IOException {
         return selector.selectNow();
     }
-
+    
+    /**
+     * 监听事件的到来
+     *
+     * @param deadlineNanos
+     * @return
+     * @throws IOException
+     */
     private int select(long deadlineNanos) throws IOException {
         if (deadlineNanos == NONE) {
+            // 进行 selector 阻塞，监听事件的到来
             return selector.select();
         }
         // Timeout will only be 0 if deadline is within 5 microsecs

@@ -57,6 +57,7 @@ public class FastThreadLocalThread extends Thread {
     }
 
     public FastThreadLocalThread(ThreadGroup group, Runnable target, String name) {
+        // 将任务包装为 FastThreadLocalRunnable
         super(group, FastThreadLocalRunnable.wrap(target), name);
         cleanupFastThreadLocals = true;
     }

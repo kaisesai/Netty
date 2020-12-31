@@ -126,15 +126,23 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         this.childHandler = ObjectUtil.checkNotNull(childHandler, "childHandler");
         return this;
     }
-
+    
+    /**
+     * 服务器端初始化 channel
+     * @param channel
+     */
     @Override
     void init(Channel channel) {
+        // 设置 channel 选项与属性
         setChannelOptions(channel, newOptionsArray(), logger);
         setAttributes(channel, attrs0().entrySet().toArray(EMPTY_ATTRIBUTE_ARRAY));
 
+        // 获取一个管道
         ChannelPipeline p = channel.pipeline();
 
+        // 事件循环组
         final EventLoopGroup currentChildGroup = childGroup;
+        // 处理器
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
         synchronized (childOptions) {
@@ -142,18 +150,22 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = childAttrs.entrySet().toArray(EMPTY_ATTRIBUTE_ARRAY);
 
+        // 添加一个 ChannelInitializer 到管道中
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) {
                 final ChannelPipeline pipeline = ch.pipeline();
+                // 添加配置类处理器到管道中
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
 
+                // 通过 channel 获取事件循环处理器，执行任务
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        // 创建一个 ServerBootstrapAcceptor 到管道中，传入，事件循环组、当前处理器、选项、属性
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -174,7 +186,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
         return this;
     }
-
+    
+    /**
+     * 服务端 Boss 事件循环执行器中的处理器，用于接收客户端 socketChannel 的连接
+     */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
@@ -199,6 +214,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             enableAutoReadTask = new Runnable() {
                 @Override
                 public void run() {
+                    // 设置自动读事件
                     channel.config().setAutoRead(true);
                 }
             };
@@ -207,14 +223,16 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            // 传入是客户端的 socketChannel
             final Channel child = (Channel) msg;
-
+            // 将子事件处理器添加到客户端 socketChannel 的管道中
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);
             setAttributes(child, childAttrs);
 
             try {
+                // 将客户端 socketChannel 注册到了子事件循环组当中
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
@@ -232,7 +250,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             child.unsafe().closeForcibly();
             logger.warn("Failed to register an accepted channel: {}", child, t);
         }
-
+    
+        /**
+         * 异常处理
+         *
+         * @param ctx
+         * @param cause
+         * @throws Exception
+         */
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             final ChannelConfig config = ctx.channel().config();

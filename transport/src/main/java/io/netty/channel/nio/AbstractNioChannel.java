@@ -77,10 +77,12 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
+        // 父类构造器构造 pipeline
         super(parent);
         this.ch = ch;
         this.readInterestOp = readInterestOp;
         try {
+            // 配置阻塞属性
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -245,6 +247,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 }
 
                 boolean wasActive = isActive();
+                // 执行连接
                 if (doConnect(remoteAddress, localAddress)) {
                     fulfillConnectPromise(promise, wasActive);
                 } else {
@@ -375,8 +378,10 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;
+        // 无限循环
         for (;;) {
             try {
+                // 获取 channel，并且注册到 selector 上去，感兴趣的事件为 0，返回一个 selectionKey
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -398,10 +403,15 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     protected void doDeregister() throws Exception {
         eventLoop().cancel(selectionKey());
     }
-
+    
+    /**
+     * 处理器读
+     * @throws Exception
+     */
     @Override
     protected void doBeginRead() throws Exception {
         // Channel.read() or ChannelHandlerContext.read() was called
+        // 获取选择器键
         final SelectionKey selectionKey = this.selectionKey;
         if (!selectionKey.isValid()) {
             return;
@@ -411,6 +421,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
+            // 注册感兴趣的操作
             selectionKey.interestOps(interestOps | readInterestOp);
         }
     }

@@ -44,6 +44,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
 
     @Override
     protected AbstractNioUnsafe newUnsafe() {
+        // 创建一个 Unsafe 接口
         return new NioMessageUnsafe();
     }
 
@@ -58,11 +59,15 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
     private final class NioMessageUnsafe extends AbstractNioUnsafe {
 
         private final List<Object> readBuf = new ArrayList<Object>();
-
+    
+        /**
+         * 读取 channel 中的数据
+         */
         @Override
         public void read() {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
+            // 管道
             final ChannelPipeline pipeline = pipeline();
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
             allocHandle.reset(config);
@@ -72,6 +77,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        // 读取消息
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -90,15 +96,17 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // 调用管道中的处理器的读取数据方法，这里会调用到服务端的 ServerBootstrapAcceptor
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();
                 allocHandle.readComplete();
+                // 调用管道中的处理器的数据读取完毕事件
                 pipeline.fireChannelReadComplete();
 
                 if (exception != null) {
                     closed = closeOnReadError(exception);
-
+                    // 调用管道中的处理器的异常捕获
                     pipeline.fireExceptionCaught(exception);
                 }
 

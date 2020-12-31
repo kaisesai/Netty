@@ -167,8 +167,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         super(parent);
         this.addTaskWakesUp = addTaskWakesUp;
         this.maxPendingTasks = DEFAULT_MAX_PENDING_EXECUTOR_TASKS;
+        // 将传入的 executor 使用当前事件循环器进行包装
         this.executor = ThreadExecutorMap.apply(executor, this);
+        // 任务队列
         this.taskQueue = ObjectUtil.checkNotNull(taskQueue, "taskQueue");
+        // 任务拒绝工厂
         this.rejectedExecutionHandler = ObjectUtil.checkNotNull(rejectedHandler, "rejectedHandler");
     }
 
@@ -274,7 +277,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             }
         }
     }
-
+    
+    /**
+     * 获取任务队列
+     * @return
+     */
     private boolean fetchFromScheduledTaskQueue() {
         if (scheduledTaskQueue == null || scheduledTaskQueue.isEmpty()) {
             return true;
@@ -285,6 +292,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             if (scheduledTask == null) {
                 return true;
             }
+            // 将任务添加到任务队列中
             if (!taskQueue.offer(scheduledTask)) {
                 // No space left in the task queue add it back to the scheduledTaskQueue so we pick it up again.
                 scheduledTaskQueue.add((ScheduledFutureTask<?>) scheduledTask);
@@ -352,6 +360,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (isShutdown()) {
             reject();
         }
+        // 将任务添加到队列中
         return taskQueue.offer(task);
     }
 
@@ -555,9 +564,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             taskQueue.offer(WAKEUP_TASK);
         }
     }
-
+    
+    /**
+     * 表示是否在执行事件循环
+     * @param thread
+     * @return
+     */
     @Override
     public boolean inEventLoop(Thread thread) {
+        // 当前线程是否为事件循环线程
         return thread == this.thread;
     }
 
@@ -825,8 +840,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void execute(Runnable task, boolean immediate) {
         boolean inEventLoop = inEventLoop();
+        // 添加任务
         addTask(task);
+        // 不是当前线程自己调用，则启动该线程的任务
         if (!inEventLoop) {
+            // 启动线程
             startThread();
             if (isShutdown()) {
                 boolean reject = false;
@@ -944,6 +962,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 boolean success = false;
                 try {
+                    // 执行任务
                     doStartThread();
                     success = true;
                 } finally {
@@ -986,6 +1005,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    // 运行当前本类的 run 方法
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

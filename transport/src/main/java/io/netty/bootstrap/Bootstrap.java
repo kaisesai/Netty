@@ -191,18 +191,21 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
             final EventLoop eventLoop = channel.eventLoop();
             AddressResolver<SocketAddress> resolver;
             try {
+                // 解析
                 resolver = this.resolver.getResolver(eventLoop);
             } catch (Throwable cause) {
                 channel.close();
                 return promise.setFailure(cause);
             }
 
+            // 执行连接
             if (!resolver.isSupported(remoteAddress) || resolver.isResolved(remoteAddress)) {
                 // Resolver has no idea about what to do with the specified remote address or it's resolved already.
                 doConnect(remoteAddress, localAddress, promise);
                 return promise;
             }
 
+            // 解析地址
             final Future<SocketAddress> resolveFuture = resolver.resolve(remoteAddress);
 
             if (resolveFuture.isDone()) {
@@ -214,6 +217,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
                     promise.setFailure(resolveFailureCause);
                 } else {
                     // Succeeded to resolve immediately; cached? (or did a blocking lookup)
+                    // 执行连接
                     doConnect(resolveFuture.getNow(), localAddress, promise);
                 }
                 return promise;
@@ -255,11 +259,17 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
             }
         });
     }
-
+    
+    /**
+     * 初始化客户端 channel
+     *
+     * @param channel
+     */
     @Override
     @SuppressWarnings("unchecked")
     void init(Channel channel) {
         ChannelPipeline p = channel.pipeline();
+        // 向管道中添加处理器
         p.addLast(config.handler());
 
         setChannelOptions(channel, newOptionsArray(), logger);

@@ -47,13 +47,19 @@ public final class DiscardServer {
             sslCtx = null;
         }
 
+        // 创建两个事件循环组
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
+            // 创建服务启动类
             ServerBootstrap b = new ServerBootstrap();
+            // 配置属性
             b.group(bossGroup, workerGroup)
+             // 配置通道实现类
              .channel(NioServerSocketChannel.class)
+              // 配置主事件处理器
              .handler(new LoggingHandler(LogLevel.INFO))
+              // 配置子事件组处理器
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) {
@@ -65,6 +71,7 @@ public final class DiscardServer {
                  }
              });
 
+            // 绑定端口启动
             // Bind and start to accept incoming connections.
             ChannelFuture f = b.bind(PORT).sync();
 

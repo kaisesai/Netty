@@ -59,6 +59,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
              */
+            // 打开个一个 ServerSocketChannel
             return provider.openServerSocketChannel();
         } catch (IOException e) {
             throw new ChannelException(
@@ -72,6 +73,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance
      */
     public NioServerSocketChannel() {
+        // 创建一个 channel 实例
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
 
@@ -86,7 +88,9 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
+        // 传入 OP_ACCEPT，用于接收客户端 socket 连接事件
         super(null, channel, SelectionKey.OP_ACCEPT);
+        // 配置信息
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 
@@ -104,11 +108,17 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     public ServerSocketChannelConfig config() {
         return config;
     }
-
+    
+    /**
+     * 判断是否活跃
+     *
+     * @return
+     */
     @Override
     public boolean isActive() {
         // As java.nio.ServerSocketChannel.isBound() will continue to return true even after the channel was closed
         // we will also need to check if it is open.
+        // 已经打开，并且 socket 已经绑定
         return isOpen() && javaChannel().socket().isBound();
     }
 
@@ -126,11 +136,17 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     protected SocketAddress localAddress0() {
         return SocketUtils.localSocketAddress(javaChannel().socket());
     }
-
+    
+    /**
+     * 执行
+     * @param localAddress
+     * @throws Exception
+     */
     @SuppressJava6Requirement(reason = "Usage guarded by java version check")
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
         if (PlatformDependent.javaVersion() >= 7) {
+            // 调用 ServerSocketChannel 的 bind 方法来进行绑定端口
             javaChannel().bind(localAddress, config.getBacklog());
         } else {
             javaChannel().socket().bind(localAddress, config.getBacklog());
@@ -141,9 +157,16 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     protected void doClose() throws Exception {
         javaChannel().close();
     }
-
+    
+    /**
+     * 读取客户端的连接
+     * @param buf
+     * @return
+     * @throws Exception
+     */
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
+        // 与客户端建立连接 SocketChannel
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {

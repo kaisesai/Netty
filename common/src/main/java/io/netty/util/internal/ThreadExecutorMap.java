@@ -25,7 +25,10 @@ import java.util.concurrent.ThreadFactory;
  * Allow to retrieve the {@link EventExecutor} for the calling {@link Thread}.
  */
 public final class ThreadExecutorMap {
-
+    
+    /**
+     * 通过 FastThreadLocal 来保存当前线程使用的事件执行器
+     */
     private static final FastThreadLocal<EventExecutor> mappings = new FastThreadLocal<EventExecutor>();
 
     private ThreadExecutorMap() { }
@@ -45,6 +48,8 @@ public final class ThreadExecutorMap {
     }
 
     /**
+     * 对传入的 executor 使用 eventExecutor 进行包装。包装做的事情是在执行执行时，设置对应的事件执行到线程本地化数据。
+     *
      * Decorate the given {@link Executor} and ensure {@link #currentExecutor()} will return {@code eventExecutor}
      * when called from within the {@link Runnable} during execution.
      */
@@ -54,6 +59,7 @@ public final class ThreadExecutorMap {
         return new Executor() {
             @Override
             public void execute(final Runnable command) {
+                // 委派参数中的 executor 执行包装的任务，被包装的任务就是在执行前后设置事件执行器
                 executor.execute(apply(command, eventExecutor));
             }
         };
@@ -69,10 +75,12 @@ public final class ThreadExecutorMap {
         return new Runnable() {
             @Override
             public void run() {
+                // 设置事件执行器到线程本地化
                 setCurrentEventExecutor(eventExecutor);
                 try {
                     command.run();
                 } finally {
+                    // 释放线程本地化的事件执行器数据
                     setCurrentEventExecutor(null);
                 }
             }

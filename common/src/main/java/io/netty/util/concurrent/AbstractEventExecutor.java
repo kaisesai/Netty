@@ -57,7 +57,10 @@ public abstract class AbstractEventExecutor extends AbstractExecutorService impl
     public EventExecutor next() {
         return this;
     }
-
+    
+    /**
+     * @return 是否在循环
+     */
     @Override
     public boolean inEventLoop() {
         return inEventLoop(Thread.currentThread());

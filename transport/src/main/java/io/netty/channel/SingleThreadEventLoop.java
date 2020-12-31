@@ -63,6 +63,7 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
                                     boolean addTaskWakesUp, Queue<Runnable> taskQueue, Queue<Runnable> tailTaskQueue,
                                     RejectedExecutionHandler rejectedExecutionHandler) {
         super(parent, executor, addTaskWakesUp, taskQueue, rejectedExecutionHandler);
+        // 尾部任务队列，TODO 2020年12月28日15:37:04 用于 forkjoin 线程窃取吗？
         tailTasks = ObjectUtil.checkNotNull(tailTaskQueue, "tailTaskQueue");
     }
 
@@ -75,15 +76,22 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
     public EventLoop next() {
         return (EventLoop) super.next();
     }
-
+    
+    /**
+     * 注册 channel
+     * @param channel
+     * @return
+     */
     @Override
     public ChannelFuture register(Channel channel) {
+        // 注册 channel
         return register(new DefaultChannelPromise(channel, this));
     }
 
     @Override
     public ChannelFuture register(final ChannelPromise promise) {
         ObjectUtil.checkNotNull(promise, "promise");
+        // 注册 channel，io.netty.channel.AbstractChannel.AbstractUnsafe.register
         promise.channel().unsafe().register(this, promise);
         return promise;
     }

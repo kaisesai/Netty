@@ -70,8 +70,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
+        // channelId
         id = newId();
+        // Unsafe 类，实际为 NioMessageUnsafe
         unsafe = newUnsafe();
+        // 创建管道 pipeline
         pipeline = newChannelPipeline();
     }
 
@@ -147,6 +150,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     @Override
     public EventLoop eventLoop() {
+        // 获取事件循环处理器
         EventLoop eventLoop = this.eventLoop;
         if (eventLoop == null) {
             throw new IllegalStateException("channel not registered to an event loop");
@@ -448,7 +452,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         public final SocketAddress remoteAddress() {
             return remoteAddress0();
         }
-
+    
+        /**
+         * 注册 channel
+         * @param eventLoop
+         * @param promise
+         */
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
@@ -462,15 +471,22 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // 保存事件循环处理器
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // 服务启动时的线程不是事件循环线程
+            // 是否在执行事件循环
             if (eventLoop.inEventLoop()) {
+                // 执行注册
                 register0(promise);
             } else {
                 try {
+                    // 让事件循环执行器执行一个任务，异步注册
+                    // 启动事件循环线程任务
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
+                            // 注册
                             register0(promise);
                         }
                     });
@@ -493,6 +509,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 执行注册
                 doRegister();
                 neverRegistered = false;
                 registered = true;
@@ -502,17 +519,21 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+                // 交给下一个处理器处理注册事件
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
+                // 如果channel 已经打开，并且 socket 已经绑定
                 if (isActive()) {
                     if (firstRegistration) {
+                        //
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
                         // again so that we process inbound data.
                         //
                         // See https://github.com/netty/netty/issues/4805
+                        // 开始读取数据
                         beginRead();
                     }
                 }
@@ -523,7 +544,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 safeSetFailure(promise, t);
             }
         }
-
+    
+        /**
+         * 绑定地址和端口
+         *
+         * @param localAddress
+         * @param promise
+         */
         @Override
         public final void bind(final SocketAddress localAddress, final ChannelPromise promise) {
             assertEventLoop();
@@ -547,17 +574,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             boolean wasActive = isActive();
             try {
+                // 执行绑定
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
                 closeIfClosed();
                 return;
             }
-
+            // channel 已经打开，处于活跃状态
             if (!wasActive && isActive()) {
+                // 通过事件循环执行器来处理任务
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        // 执行处理器 active 方法
                         pipeline.fireChannelActive();
                     }
                 });
@@ -831,7 +861,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 }
             });
         }
-
+    
+        /**
+         * 开始读取数据
+         */
         @Override
         public final void beginRead() {
             assertEventLoop();
@@ -841,6 +874,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                // 开始处理读数据
                 doBeginRead();
             } catch (final Exception e) {
                 invokeLater(new Runnable() {

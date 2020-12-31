@@ -125,10 +125,16 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     public ByteBufAllocator alloc() {
         return channel().config().getAllocator();
     }
-
+    
+    /**
+     * 获取事件循环处理器
+     *
+     * @return
+     */
     @Override
     public EventExecutor executor() {
         if (executor == null) {
+            // 获取事件循环处理器
             return channel().eventLoop();
         } else {
             return executor;
@@ -139,14 +145,26 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     public String name() {
         return name;
     }
-
+    
+    /**
+     * 调用下一个处理器
+     *
+     * @return
+     */
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
+        // 调用下一个处理器的注册事件方法
         invokeChannelRegistered(findContextInbound(MASK_CHANNEL_REGISTERED));
         return this;
     }
-
+    
+    /**
+     * 执行通道注册
+     *
+     * @param next
+     */
     static void invokeChannelRegistered(final AbstractChannelHandlerContext next) {
+        // 首次进来时，next 就是 head 处理器，获取处理器的事件循环执行器，即 EventLookExecutor
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeChannelRegistered();
@@ -159,10 +177,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             });
         }
     }
-
+    
+    /**
+     * 处理 channel 注册事件
+     */
     private void invokeChannelRegistered() {
+        // 是否执行处理器
         if (invokeHandler()) {
             try {
+                // 执行注册事件
                 ((ChannelInboundHandler) handler()).channelRegistered(this);
             } catch (Throwable t) {
                 invokeExceptionCaught(t);
@@ -211,8 +234,10 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     static void invokeChannelActive(final AbstractChannelHandlerContext next) {
+        // 获取事件循环执行器
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            // 执行 channel 激活事件处理方法
             next.invokeChannelActive();
         } else {
             executor.execute(new Runnable() {
@@ -485,9 +510,12 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             return promise;
         }
 
+        // 获取处理器，从 tail 开始往前查找，outbound 处理器
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_BIND);
+        // 获取事件循环执行器
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            // 执行处理器的绑定方法
             next.invokeBind(localAddress, promise);
         } else {
             safeExecute(executor, new Runnable() {
@@ -503,6 +531,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
         if (invokeHandler()) {
             try {
+                // 执行绑定操作
                 ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);
@@ -529,6 +558,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_CONNECT);
         EventExecutor executor = next.executor();
+        // 通过事件循环执行器来执行连接
         if (executor.inEventLoop()) {
             next.invokeConnect(remoteAddress, localAddress, promise);
         } else {
@@ -872,11 +902,19 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
         return false;
     }
-
+    
+    /**
+     * 查找下一个处理器上下文
+     *
+     * @param mask
+     * @return
+     */
     private AbstractChannelHandlerContext findContextInbound(int mask) {
         AbstractChannelHandlerContext ctx = this;
+        // 又获取事件循环执行器
         EventExecutor currentExecutor = executor();
         do {
+            // 获取下一个处理器上下文，从前往后找
             ctx = ctx.next;
         } while (skipContext(ctx, currentExecutor, mask, MASK_ONLY_INBOUND));
         return ctx;
@@ -886,6 +924,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         AbstractChannelHandlerContext ctx = this;
         EventExecutor currentExecutor = executor();
         do {
+            // 从后往前找
             ctx = ctx.prev;
         } while (skipContext(ctx, currentExecutor, mask, MASK_ONLY_OUTBOUND));
         return ctx;
@@ -920,6 +959,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             // Ensure we never update when the handlerState is REMOVE_COMPLETE already.
             // oldState is usually ADD_PENDING but can also be REMOVE_COMPLETE when an EventExecutor is used that is not
             // exposing ordering guarantees.
+            // 通过 CAS 原子的方式设置处理状态为 ADD_COMPLETE
             if (HANDLER_STATE_UPDATER.compareAndSet(this, oldState, ADD_COMPLETE)) {
                 return true;
             }
@@ -927,10 +967,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     final void setAddPending() {
+        // 更新值为 ADD_PENDING
         boolean updated = HANDLER_STATE_UPDATER.compareAndSet(this, INIT, ADD_PENDING);
         assert updated; // This should always be true as it MUST be called before setAddComplete() or setRemoved().
     }
-
+    
+    /**
+     * 处理器已经添加事件回调
+     * @throws Exception
+     */
     final void callHandlerAdded() throws Exception {
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.

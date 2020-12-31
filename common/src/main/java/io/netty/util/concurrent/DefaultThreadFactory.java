@@ -100,9 +100,16 @@ public class DefaultThreadFactory implements ThreadFactory {
         this(poolName, daemon, priority, System.getSecurityManager() == null ?
                 Thread.currentThread().getThreadGroup() : System.getSecurityManager().getThreadGroup());
     }
-
+    
+    /**
+     * 重写了创建线程的方法
+     *
+     * @param r
+     * @return
+     */
     @Override
     public Thread newThread(Runnable r) {
+        // 创建 FastThreadLocalThread 线程
         Thread t = newThread(FastThreadLocalRunnable.wrap(r), prefix + nextId.incrementAndGet());
         try {
             if (t.isDaemon() != daemon) {
@@ -119,6 +126,7 @@ public class DefaultThreadFactory implements ThreadFactory {
     }
 
     protected Thread newThread(Runnable r, String name) {
+        // 创建一个 FastThreadLocalThread 线程
         return new FastThreadLocalThread(threadGroup, r, name);
     }
 }

@@ -75,7 +75,10 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     protected static long initialNanoTime() {
         return ScheduledFutureTask.initialNanoTime();
     }
-
+  
+  /**
+   * @return 创建一个人优先级队列
+   */
     PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue() {
         if (scheduledTaskQueue == null) {
             scheduledTaskQueue = new DefaultPriorityQueue<ScheduledFutureTask<?>>(
@@ -148,10 +151,14 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      * if no task is scheduled.
      */
     protected final long nextScheduledTaskDeadlineNanos() {
+        // 获取定时任务
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
         return scheduledTask != null ? scheduledTask.deadlineNanos() : -1;
     }
-
+  
+  /**
+   * @return 弹出一个定时任务
+   */
     final ScheduledFutureTask<?> peekScheduledTask() {
         Queue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
         return scheduledTaskQueue != null ? scheduledTaskQueue.peek() : null;
